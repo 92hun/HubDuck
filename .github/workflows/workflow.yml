@@ -75,3 +75,26 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  update-manifests:
+    needs: [version, docker]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: 92hun/hubduck-manifests
+          token: ${{ secrets.MANIFESTS_TOKEN }}
+      - name: 이미지 태그 변경
+        env:
+          NEW_TAG: ${{ needs.version.outputs.new_tag }}
+        run: kustomize edit set image ghcr.io/92hun/hubduck=ghcr.io/92hun/hubduck:${NEW_TAG}
+      - name: 변경 사항 커밋과 push
+        env:
+          NEW_TAG: ${{ needs.version.outputs.new_tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kustomization.yaml
+          git diff --cached --quiet || git commit -m "chore: update hubduck image to ${NEW_TAG}"
+          git push
